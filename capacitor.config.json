@@ -1,0 +1,14 @@
+{
+  "appId": "app.treinos",
+  "appName": "Treinos",
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorSQLite": {
+      "androidIsEncryption": false
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_treino",
+      "iconColor": "#2E7D5B"
+    }
+  }
+}
