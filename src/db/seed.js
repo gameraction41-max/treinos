@@ -256,5 +256,4 @@ export async function seed(db) {
     }
   }
   await db.run('INSERT OR IGNORE INTO perfil (id) VALUES (1)');
-  await db.run("INSERT INTO dias_fixos (dia_semana, tipo, descricao) VALUES (6, 'pilates', 'Pilates')");
 }

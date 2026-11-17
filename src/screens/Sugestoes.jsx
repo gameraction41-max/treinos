@@ -10,7 +10,7 @@ async function carregar() {
   for (const dv of divisoes) {
     for (const f of dv.fichas) f.itens = await repo.getModeloItens(f.id);
   }
-  return { divisoes, perfil, diasAcademia, recomendada };
+  return { divisoes, perfil, diasAcademia, recomendada, temFixa: fixos.length > 0 };
 }
 
 const textoDias = (d) => `${d.replace('-', ' a ')} dias`;
@@ -37,7 +37,7 @@ export default function Sugestoes() {
       <div className="stack">
         <p className="hint">
           Para <b>{nomeNivel(d.perfil.nivel).toLowerCase()}</b> com <b>{d.diasAcademia}</b> dia{d.diasAcademia > 1 ? 's' : ''} de academia por
-          semana (o Pilates conta na meta, mas não ocupa dia de academia).
+          semana{d.temFixa ? ' (a atividade fixa conta na meta, mas não ocupa dia de academia)' : ''}.
         </p>
         {d.recomendada && <Divisao dv={d.recomendada} destaque onUsar={usar} />}
         <h3 className="section-title">Outras sugestões</h3>

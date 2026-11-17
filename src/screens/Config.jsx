@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Icon, PageHeader, Segmented, Stepper, Sheet, useApp, useLoad, NIVEIS } from '../components/ui.jsx';
 import * as repo from '../db/repo.js';
 import { DIAS_LONGOS, weekStart, today, addDays } from '../lib/dates.js';
-import { permissaoNotificacoes, pedirPermissao, testarNotificacao } from '../lib/lembretes.js';
+import { permissaoNotificacoes, pedirPermissao, testarNotificacao, cancelarTodos } from '../lib/lembretes.js';
+import { apagarFoto } from '../lib/imagens.js';
 import { Capacitor } from '@capacitor/core';
 
 async function carregar() {
@@ -38,15 +39,16 @@ export default function Config() {
           <div className="setting">
             <div>
               <strong>Meta de treinos por semana</strong>
-              <span className="row-sub">Inclui os dias fixos, como o Pilates</span>
+              <span className="row-sub">Inclui a atividade fixa, se você tiver</span>
             </div>
             <Stepper value={Number(perfil.meta_semanal)} min={1} max={7} onChange={(v) => salvar({ meta_semanal: v }, true)} />
           </div>
           <div className="setting column">
             <div>
-              <strong>Dias fixos</strong>
-              <span className="row-sub">Contam na meta, mas não ocupam dia de academia</span>
+              <strong>Atividade fixa</strong>
+              <span className="row-sub">Ex.: Pilates, natação. Conta na meta, mas não ocupa dia de academia</span>
             </div>
+            {!fixos.length && <span className="hint small">Nenhuma. Sua meta é só de academia.</span>}
             <ul className="fixed-list">
               {fixos.map((f) => (
                 <li key={f.id}>
@@ -67,8 +69,8 @@ export default function Config() {
                 </li>
               ))}
             </ul>
-            <button className="btn ghost small" onClick={() => app.abrirSheet(<NovoFixo usados={fixos.map((f) => f.dia_semana)} onSalvo={replanejar} />)}>
-              <Icon name="mais" size={18} /> Adicionar dia fixo
+            <button className="btn ghost small" onClick={() => app.abrirSheet(<NovoFixo usados={fixos.map((f) => f.dia_semana)} nomeAtual={fixos[0]?.descricao} onSalvo={replanejar} />)}>
+              <Icon name="mais" size={18} /> {fixos.length ? 'Adicionar outro dia' : 'Adicionar atividade fixa'}
             </button>
           </div>
           <div className="setting column">
@@ -97,7 +99,7 @@ export default function Config() {
           <div className="setting">
             <div>
               <strong>Horário do lembrete</strong>
-              <span className="row-sub">Nos dias com treino ou Pilates</span>
+              <span className="row-sub">Nos dias com treino ou atividade fixa</span>
             </div>
             <input type="time" className="time" value={perfil.hora_lembrete} onChange={(e) => e.target.value && salvar({ hora_lembrete: e.target.value })} />
           </div>
@@ -129,20 +131,28 @@ export default function Config() {
           )}
         </section>
 
+        <section className="card settings">
+          <h3 className="card-title">Dados</h3>
+          <p className="hint small">Apaga fichas, semana, peso, fotos e configurações, e volta para a tela de boas-vindas.</p>
+          <button className="btn danger ghost small left" onClick={() => app.abrirSheet(<Recomecar />)}>
+            <Icon name="lixo" size={18} /> Recomeçar do zero
+          </button>
+        </section>
+
         <p className="hint small center">Seus dados ficam só neste celular: sem conta, sem internet. Desinstalar o app apaga tudo.</p>
       </div>
     </>
   );
 }
 
-function NovoFixo({ usados, onSalvo }) {
+function NovoFixo({ usados, nomeAtual, onSalvo }) {
   const app = useApp();
   const livres = [1, 2, 3, 4, 5, 6, 0].filter((d) => !usados.includes(d));
   const [dia, setDia] = useState(livres[0] ?? 6);
-  const [desc, setDesc] = useState('Pilates');
+  const [desc, setDesc] = useState(nomeAtual || '');
   return (
     <Sheet
-      title="Novo dia fixo"
+      title="Atividade fixa"
       onClose={app.fecharSheet}
       footer={
         <button
@@ -159,6 +169,10 @@ function NovoFixo({ usados, onSalvo }) {
         </button>
       }
     >
+      <label className="field">
+        <span>Qual atividade?</span>
+        <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Ex.: Pilates" />
+      </label>
       <div className="field">
         <span>Dia da semana</span>
         <div className="chips-wrap">
@@ -169,10 +183,43 @@ function NovoFixo({ usados, onSalvo }) {
           ))}
         </div>
       </div>
-      <label className="field">
-        <span>O que é</span>
-        <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Ex.: Pilates, Natação" />
-      </label>
+    </Sheet>
+  );
+}
+
+function Recomecar() {
+  const app = useApp();
+  const [apagando, setApagando] = useState(false);
+  return (
+    <Sheet
+      title="Recomeçar do zero?"
+      onClose={app.fecharSheet}
+      footer={
+        <div className="foot-row">
+          <button className="btn ghost" onClick={app.fecharSheet}>
+            Cancelar
+          </button>
+          <button
+            className="btn danger"
+            disabled={apagando}
+            onClick={async () => {
+              setApagando(true);
+              const fotos = await repo.apagarTudo();
+              await cancelarTodos().catch(() => {});
+              for (const f of fotos) await apagarFoto(f);
+              location.hash = '';
+              location.reload();
+            }}
+          >
+            Apagar tudo
+          </button>
+        </div>
+      }
+    >
+      <p>
+        Todas as suas fichas, a agenda, os registros de peso, as fotos e as configurações serão apagados. O app volta para a tela de boas-vindas,
+        com os exercícios e as sugestões originais. <b>Isso não pode ser desfeito.</b>
+      </p>
     </Sheet>
   );
 }

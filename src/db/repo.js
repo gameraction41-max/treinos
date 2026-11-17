@@ -1,5 +1,6 @@
 // Todas as leituras e escritas do app passam por aqui.
-import { all, one, run, tx, criarTrava } from './connection.js';
+import { all, one, run, tx, criarTrava, getDb } from './connection.js';
+import { seed } from './seed.js';
 
 // Montar e replanejar semanas nunca acontecem ao mesmo tempo.
 const travaSemana = criarTrava();
@@ -27,7 +28,7 @@ export async function getDiasFixos() {
 }
 
 export async function addDiaFixo(dia_semana, descricao) {
-  await run("INSERT INTO dias_fixos (dia_semana, tipo, descricao) VALUES (?, 'pilates', ?)", [dia_semana, descricao || 'Pilates']);
+  await run("INSERT INTO dias_fixos (dia_semana, tipo, descricao) VALUES (?, 'pilates', ?)", [dia_semana, descricao || 'Atividade fixa']);
 }
 
 export async function removeDiaFixo(id) {
@@ -430,4 +431,21 @@ export async function deletePeso(id) {
 
 export async function ultimoPeso() {
   return one('SELECT * FROM registros_peso ORDER BY data DESC, id DESC LIMIT 1');
+}
+
+// ---------- Recomeçar do zero ----------
+
+// Apaga todos os seus dados (fichas, semana, peso, exercícios cadastrados e
+// configurações) e volta o app ao estado da primeira abertura.
+export async function apagarTudo() {
+  const fotos = (await all('SELECT imagem_url FROM exercicios WHERE imagem_url IS NOT NULL')).map((r) => r.imagem_url);
+  const db = await getDb();
+  await tx(async () => {
+    for (const t of ['agenda', 'ficha_itens', 'fichas', 'registros_peso', 'dias_fixos', 'modelo_itens', 'modelos_treino', 'exercicios', 'perfil']) {
+      await run(`DELETE FROM ${t}`);
+    }
+    await run("DELETE FROM sqlite_sequence");
+    await seed(db);
+  });
+  return fotos;
 }

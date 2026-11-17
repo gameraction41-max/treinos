@@ -1370,3 +1370,19 @@ input.time {
   max-width: calc(100% - 32px);
   animation: fade 0.15s;
 }
+
+.btn.left {
+  align-self: flex-start;
+}
+
+.setting.fixa {
+  background: var(--pilates-soft);
+  border-radius: 12px;
+  padding: 12px;
+  border-bottom: 0;
+  margin-bottom: 6px;
+}
+
+.setting.fixa input {
+  background: var(--surface);
+}

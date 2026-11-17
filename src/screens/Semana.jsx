@@ -19,8 +19,8 @@ async function carregar(inicio) {
 }
 
 function nomeFixo(fixos, data) {
-  const f = fixos.find((x) => x.dia_semana === parse(data).getDay());
-  return f?.descricao || 'Pilates';
+  const f = fixos.find((x) => x.dia_semana === parse(data).getDay()) || fixos[0];
+  return f?.descricao || 'Atividade fixa';
 }
 
 export default function Semana() {
@@ -234,7 +234,9 @@ function DiaSheet({ dia, fichas, fixos, proxima }) {
         {fichas.map((f) => (
           <Opcao key={f.id} on={atual('treino', f.id)} onClick={() => escolher('treino', f.id)} titulo={f.nome} sub="Escolher esta ficha" />
         ))}
-        <Opcao on={dia.tipo === 'pilates'} onClick={() => escolher('pilates')} titulo={nomeFixo(fixos, dia.data)} sub="Atividade fixa" />
+        {(fixos.length > 0 || dia.tipo === 'pilates') && (
+          <Opcao on={dia.tipo === 'pilates'} onClick={() => escolher('pilates')} titulo={nomeFixo(fixos, dia.data)} sub="Atividade fixa" />
+        )}
         <Opcao on={dia.tipo === 'descanso'} onClick={() => escolher('descanso')} titulo="Descanso" />
       </div>
       {dia.tipo === 'treino' && dia.ficha_id ? (

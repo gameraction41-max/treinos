@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Segmented, Stepper, NIVEIS, useApp } from '../components/ui.jsx';
+import { DIAS_LONGOS } from '../lib/dates.js';
 import * as repo from '../db/repo.js';
 import { divisaoSugerida } from '../lib/planner.js';
 import { pedirPermissao } from '../lib/lembretes.js';
@@ -9,18 +10,23 @@ export default function Boasvindas({ onPronto }) {
   const app = useApp();
   const [nivel, setNivel] = useState('iniciante');
   const [meta, setMeta] = useState(4);
-  const [pilates, setPilates] = useState(true);
+  const [temFixa, setTemFixa] = useState(false);
+  const [nomeFixa, setNomeFixa] = useState('');
+  const [diasFixa, setDiasFixa] = useState([]);
   const [hora, setHora] = useState('07:00');
   const [sugestao, setSugestao] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const diasAcademia = Math.max(1, meta - (pilates ? 1 : 0));
+  const qtdFixa = temFixa ? diasFixa.length : 0;
+  const diasAcademia = Math.max(1, meta - qtdFixa);
+  const fixaIncompleta = temFixa && (!nomeFixa.trim() || !diasFixa.length);
+  const alternarDia = (d) => setDiasFixa((v) => (v.includes(d) ? v.filter((x) => x !== d) : [...v, d]));
 
   async function comecar() {
     setSalvando(true);
     try {
       await repo.savePerfil({ nivel, meta_semanal: meta, hora_lembrete: hora });
-      const fixos = await repo.getDiasFixos();
-      if (!pilates) for (const f of fixos) await repo.removeDiaFixo(f.id);
+      for (const f of await repo.getDiasFixos()) await repo.removeDiaFixo(f.id);
+      if (temFixa) for (const d of diasFixa) await repo.addDiaFixo(d, nomeFixa.trim());
       if (sugestao) {
         const dv = divisaoSugerida(await repo.listDivisoes(), nivel, diasAcademia);
         if (dv) await repo.usarSugestao(dv.divisao);
@@ -57,17 +63,35 @@ export default function Boasvindas({ onPronto }) {
           <div className="setting">
             <div>
               <strong>Treinos por semana</strong>
-              <span className="row-sub">Contando o Pilates</span>
+              <span className="row-sub">{temFixa ? 'Contando a atividade fixa' : 'Academia e outras atividades'}</span>
             </div>
             <Stepper value={meta} min={1} max={7} onChange={setMeta} />
           </div>
           <label className="setting toggle">
             <div>
-              <strong>Pilates aos sábados</strong>
-              <span className="row-sub">Fica fixo na agenda</span>
+              <strong>Tenho uma atividade fixa</strong>
+              <span className="row-sub">Ex.: Pilates, natação, luta. Conta na meta, mas não ocupa dia de academia</span>
             </div>
-            <input type="checkbox" checked={pilates} onChange={(e) => setPilates(e.target.checked)} />
+            <input type="checkbox" checked={temFixa} onChange={(e) => setTemFixa(e.target.checked)} />
           </label>
+          {temFixa && (
+            <div className="setting column fixa">
+              <label className="field">
+                <span>Qual atividade?</span>
+                <input value={nomeFixa} onChange={(e) => setNomeFixa(e.target.value)} placeholder="Ex.: Pilates" />
+              </label>
+              <div className="field">
+                <span>Em que dia(s) da semana?</span>
+                <div className="chips-wrap">
+                  {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                    <button key={d} className={`chip-btn ${diasFixa.includes(d) ? 'on' : ''}`} onClick={() => alternarDia(d)}>
+                      {DIAS_LONGOS[d]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="setting">
             <div>
               <strong>Lembrete do treino</strong>
@@ -85,7 +109,7 @@ export default function Boasvindas({ onPronto }) {
             <input type="checkbox" checked={sugestao} onChange={(e) => setSugestao(e.target.checked)} />
           </label>
         </section>
-        <button className="btn full big" disabled={salvando} onClick={comecar}>
+        <button className="btn full big" disabled={salvando || fixaIncompleta} onClick={comecar}>
           Começar
         </button>
         <p className="hint small center">O app vai pedir permissão para mandar os lembretes.</p>

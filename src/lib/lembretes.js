@@ -54,7 +54,7 @@ export async function montarLembretes(agora = new Date()) {
     if (at <= agora) return;
     const fixo = fixos.find((f) => f.dia_semana === parse(d.data).getDay());
     const titulo =
-      d.tipo === 'pilates' ? `Hoje: ${fixo?.descricao || 'Pilates'}` : `Hoje: ${nomeCurto(d.ficha_nome)}`;
+      d.tipo === 'pilates' ? `Hoje: ${fixo?.descricao || 'Atividade fixa'}` : `Hoje: ${nomeCurto(d.ficha_nome)}`;
     out.push({ id: ID_TREINO + i, title: titulo, body: 'Bom treino! Marque como feito quando terminar.', at });
   });
 
@@ -137,4 +137,12 @@ export async function testarNotificacao() {
     ],
   });
   return true;
+}
+
+export async function cancelarTodos() {
+  if (!nativo()) return;
+  const pendentes = await LN.getPending();
+  if (pendentes.notifications.length) {
+    await LN.cancel({ notifications: pendentes.notifications.map((n) => ({ id: n.id })) });
+  }
 }
