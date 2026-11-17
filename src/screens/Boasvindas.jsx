@@ -26,7 +26,8 @@ export default function Boasvindas({ onPronto }) {
         if (dv) await repo.usarSugestao(dv.divisao);
       }
       await repo.savePerfil({ configurado: 1 });
-      await pedirPermissao().catch(() => {});
+      // A permissão nunca pode segurar a entrada no app.
+      await Promise.race([pedirPermissao().catch(() => {}), new Promise((r) => setTimeout(r, 20000))]);
       onPronto();
     } catch (e) {
       console.error(e);

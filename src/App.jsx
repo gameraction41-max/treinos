@@ -53,19 +53,30 @@ export default function App() {
   const estado = useRef({});
   estado.current = { sheet, pilha, aba };
 
+  const [etapa, setEtapa] = useState('Abrindo o banco de dados');
+  const [demorando, setDemorando] = useState(false);
+
   useEffect(() => {
+    // Se a abertura travar, mostra em que etapa parou em vez de ficar em "Carregando…".
+    const t = setTimeout(() => setDemorando(true), 15000);
     (async () => {
       try {
+        setEtapa('Abrindo o banco de dados');
         await getDb();
+        setEtapa('Lendo o seu perfil');
         const perfil = await repo.getPerfil();
         setConfigurado(!!perfil.configurado);
-        if (perfil.configurado) await reagendar().catch(console.error);
         setPronto(true);
+        clearTimeout(t);
+        // Lembretes em segundo plano: nunca seguram a abertura do app.
+        if (perfil.configurado) reagendar().catch(console.error);
       } catch (e) {
         console.error(e);
+        clearTimeout(t);
         setErro(String(e?.message || e));
       }
     })();
+    return () => clearTimeout(t);
   }, []);
 
   const mudou = useCallback(() => {
@@ -113,12 +124,33 @@ export default function App() {
   if (erro) {
     return (
       <div className="boot">
-        <strong>Não consegui abrir o banco de dados.</strong>
-        <p>{erro}</p>
+        <strong>Não consegui abrir o app.</strong>
+        <p>
+          Etapa: {etapa}
+          <br />
+          {erro}
+        </p>
+        <button className="btn" onClick={() => location.reload()}>
+          Tentar de novo
+        </button>
       </div>
     );
   }
-  if (!pronto) return <div className="boot">Carregando…</div>;
+  if (!pronto) {
+    return (
+      <div className="boot">
+        <span>Carregando…</span>
+        {demorando && (
+          <>
+            <p>Está demorando mais que o normal ({etapa.toLowerCase()}).</p>
+            <button className="btn" onClick={() => location.reload()}>
+              Tentar de novo
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
 
   if (!configurado) {
     return (

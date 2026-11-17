@@ -1,6 +1,7 @@
 // Lembretes: notificações locais agendadas no próprio celular, sem servidor.
 // Sempre que a semana, a fila ou as configurações mudam, tudo é cancelado e reagendado.
 import { Capacitor } from '@capacitor/core';
+import { LocalNotifications as LN } from '@capacitor/local-notifications';
 import * as repo from '../db/repo.js';
 import { today, addDays, parse, weekStart, weekDays } from './dates.js';
 
@@ -11,19 +12,17 @@ const ID_PESO = 3000;
 
 const nativo = () => Capacitor.isNativePlatform();
 
-async function plugin() {
-  return (await import('@capacitor/local-notifications')).LocalNotifications;
-}
+// Atenção: nunca devolva um plugin do Capacitor de uma função async (nem com await).
+// O plugin é um Proxy que responde a qualquer propriedade, inclusive "then", e a
+// Promise fica esperando para sempre. Foi isso que travou o build 1 em "Carregando…".
 
 export async function permissaoNotificacoes() {
   if (!nativo()) return 'granted';
-  const LN = await plugin();
   return (await LN.checkPermissions()).display;
 }
 
 export async function pedirPermissao() {
   if (!nativo()) return 'granted';
-  const LN = await plugin();
   let st = (await LN.checkPermissions()).display;
   if (st !== 'granted') st = (await LN.requestPermissions()).display;
   return st;
@@ -96,7 +95,6 @@ export async function reagendar() {
   await repo.garantirSemana(addDays(weekStart(today()), 7));
   await repo.redistribuirFila();
   if (!nativo()) return;
-  const LN = await plugin();
   if ((await LN.checkPermissions()).display !== 'granted') return;
   await LN.createChannel({
     id: CANAL,
@@ -124,7 +122,6 @@ export async function reagendar() {
 
 export async function testarNotificacao() {
   if (!nativo()) return false;
-  const LN = await plugin();
   if ((await pedirPermissao()) !== 'granted') return false;
   await LN.createChannel({ id: CANAL, name: 'Lembretes de treino', importance: 4 }).catch(() => {});
   await LN.schedule({
