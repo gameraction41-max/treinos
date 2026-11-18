@@ -63,3 +63,7 @@ Sem esses Secrets o build ainda funciona, mas assina com uma chave de debug que 
 
 - No Android 13+, o app pede permissão de notificação na primeira abertura.
 - Xiaomi e Samsung podem fechar apps em segundo plano: se os lembretes não chegarem, tire o app da otimização de bateria.
+
+## Créditos
+
+As fotos dos exercícios padrão (`public/exercicios/`) vêm do [Free Exercise DB](https://github.com/yuhonas/free-exercise-db), de domínio público (Unlicense).

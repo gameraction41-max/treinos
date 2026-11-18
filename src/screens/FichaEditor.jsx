@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon, PageHeader, Sheet, Thumb, Empty, Stepper, useApp, useLoad, fmtNum, parseNum } from '../components/ui.jsx';
 import * as repo from '../db/repo.js';
 import { SeletorExercicios } from './Exercicios.jsx';
+import { novaFoto, apagarFoto, srcDaImagem } from '../lib/imagens.js';
 
 export default function FichaEditor({ id }) {
   const app = useApp();
@@ -91,6 +92,26 @@ function ItemSheet({ item }) {
   const [reps, setReps] = useState(item.repeticoes);
   const [carga, setCarga] = useState(item.carga_kg != null ? String(item.carga_kg).replace('.', ',') : '');
   const [obs, setObs] = useState(item.observacao || '');
+  const [imagem, setImagem] = useState(item.imagem_url || null);
+  const [ocupado, setOcupado] = useState(false);
+
+  // A foto é do exercício: muda em todas as fichas e na biblioteca.
+  async function trocarFoto(origem) {
+    try {
+      setOcupado(true);
+      const caminho = await novaFoto(origem);
+      if (!caminho) return;
+      await repo.setImagemExercicio(item.exercicio_id, caminho);
+      await apagarFoto(imagem);
+      setImagem(caminho);
+      app.mudou();
+    } catch (e) {
+      console.error(e);
+      app.toast('Não foi possível usar a foto');
+    } finally {
+      setOcupado(false);
+    }
+  }
 
   async function salvar() {
     await repo.updateItem(item.id, {
@@ -126,9 +147,17 @@ function ItemSheet({ item }) {
         </div>
       }
     >
-      <div className="sheet-thumb">
-        <Thumb imagem={item.imagem_url} grupo={item.grupo_muscular} size={72} />
-        <span className="row-sub">{item.grupo_muscular}</span>
+      <div className="item-photo">
+        <FotoGrande imagem={imagem} grupo={item.grupo_muscular} />
+        <div className="item-photo-actions">
+          <span className="row-sub">{item.grupo_muscular}</span>
+          <button className="btn ghost small" disabled={ocupado} onClick={() => trocarFoto('camera')}>
+            <Icon name="camera" size={18} /> Tirar foto
+          </button>
+          <button className="btn ghost small" disabled={ocupado} onClick={() => trocarFoto('galeria')}>
+            <Icon name="galeria" size={18} /> Galeria
+          </button>
+        </div>
       </div>
       <div className="grid2">
         <label className="field">
@@ -150,6 +179,20 @@ function ItemSheet({ item }) {
       </label>
     </Sheet>
   );
+}
+
+function FotoGrande({ imagem, grupo }) {
+  const [src, setSrc] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    setSrc(null);
+    if (imagem) srcDaImagem(imagem).then((x) => vivo && setSrc(x)).catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [imagem]);
+  if (src) return <img className="photo-big" src={src} alt="" />;
+  return <Thumb imagem={null} grupo={grupo} size={120} />;
 }
 
 function MenuFicha({ ficha }) {

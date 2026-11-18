@@ -62,6 +62,56 @@ export const EXERCICIOS_PADRAO = [
   ['Elevação de pernas', 'Abdômen'],
 ];
 
+// Fotos dos exercícios padrão: Free Exercise DB (domínio público, Unlicense),
+// https://github.com/yuhonas/free-exercise-db. Ficam em public/exercicios/.
+export const IMAGENS_PADRAO = {
+  "Supino reto com barra": 'app:exercicios/barbell-bench-press-medium-grip.jpg',
+  "Supino reto com halteres": 'app:exercicios/dumbbell-bench-press.jpg',
+  "Supino inclinado com halteres": 'app:exercicios/incline-dumbbell-bench-with-palms-facing-in.jpg',
+  "Crucifixo com halteres": 'app:exercicios/dumbbell-flyes.jpg',
+  "Crossover na polia": 'app:exercicios/cable-crossover.jpg',
+  "Voador (peck deck)": 'app:exercicios/butterfly.jpg',
+  "Flexão de braço": 'app:exercicios/pushups.jpg',
+  "Puxada frontal": 'app:exercicios/wide-grip-lat-pulldown.jpg',
+  "Remada baixa": 'app:exercicios/seated-cable-rows.jpg',
+  "Remada curvada com barra": 'app:exercicios/bent-over-barbell-row.jpg',
+  "Remada unilateral com halter": 'app:exercicios/one-arm-dumbbell-row.jpg',
+  "Barra fixa": 'app:exercicios/pullups.jpg',
+  "Pulldown com corda": 'app:exercicios/rope-straight-arm-pulldown.jpg',
+  "Desenvolvimento com halteres": 'app:exercicios/dumbbell-shoulder-press.jpg',
+  "Elevação lateral": 'app:exercicios/side-lateral-raise.jpg',
+  "Elevação frontal": 'app:exercicios/front-dumbbell-raise.jpg',
+  "Crucifixo invertido": 'app:exercicios/reverse-flyes.jpg',
+  "Encolhimento com halteres": 'app:exercicios/dumbbell-shrug.jpg',
+  "Rosca direta com barra": 'app:exercicios/barbell-curl.jpg',
+  "Rosca alternada": 'app:exercicios/dumbbell-alternate-bicep-curl.jpg',
+  "Rosca martelo": 'app:exercicios/hammer-curls.jpg',
+  "Rosca na polia": 'app:exercicios/standing-biceps-cable-curl.jpg',
+  "Tríceps na polia (corda)": 'app:exercicios/triceps-pushdown-rope-attachment.jpg',
+  "Tríceps testa": 'app:exercicios/lying-triceps-press.jpg',
+  "Tríceps francês": 'app:exercicios/standing-dumbbell-triceps-extension.jpg',
+  "Mergulho no banco": 'app:exercicios/bench-dips.jpg',
+  "Agachamento livre": 'app:exercicios/barbell-squat.jpg',
+  "Agachamento goblet": 'app:exercicios/goblet-squat.jpg',
+  "Leg press 45°": 'app:exercicios/leg-press.jpg',
+  "Cadeira extensora": 'app:exercicios/leg-extensions.jpg',
+  "Afundo (passada)": 'app:exercicios/dumbbell-lunges.jpg',
+  "Agachamento búlgaro": 'app:exercicios/split-squat-with-dumbbells.jpg',
+  "Mesa flexora": 'app:exercicios/lying-leg-curls.jpg',
+  "Cadeira flexora": 'app:exercicios/seated-leg-curl.jpg',
+  "Stiff": 'app:exercicios/stiff-legged-barbell-deadlift.jpg',
+  "Levantamento terra": 'app:exercicios/barbell-deadlift.jpg',
+  "Elevação pélvica": 'app:exercicios/barbell-hip-thrust.jpg',
+  "Cadeira abdutora": 'app:exercicios/thigh-abductor.jpg',
+  "Coice na polia": 'app:exercicios/one-legged-cable-kickback.jpg',
+  "Panturrilha em pé": 'app:exercicios/standing-calf-raises.jpg',
+  "Panturrilha sentado": 'app:exercicios/seated-calf-raise.jpg',
+  "Prancha": 'app:exercicios/plank.jpg',
+  "Prancha lateral": 'app:exercicios/side-bridge.jpg',
+  "Abdominal crunch": 'app:exercicios/crunches.jpg',
+  "Elevação de pernas": 'app:exercicios/flat-bench-lying-leg-raise.jpg',
+};
+
 // Cada divisão gera várias fichas (A, B, C…). Itens: [exercício, séries, repetições].
 export const MODELOS = [
   {
@@ -233,8 +283,8 @@ export async function seed(db) {
   const ids = {};
   for (const [nome, grupo] of EXERCICIOS_PADRAO) {
     const { lastId } = await db.run(
-      'INSERT INTO exercicios (nome, grupo_muscular, padrao) VALUES (?, ?, 1)',
-      [nome, grupo],
+      'INSERT INTO exercicios (nome, grupo_muscular, imagem_url, padrao) VALUES (?, ?, ?, 1)',
+      [nome, grupo, IMAGENS_PADRAO[nome] ?? null],
     );
     ids[nome] = lastId;
   }

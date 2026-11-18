@@ -77,6 +77,10 @@ export async function saveExercicio({ id, nome, grupo_muscular, imagem_url }) {
   return lastId;
 }
 
+export async function setImagemExercicio(id, imagem_url) {
+  await run('UPDATE exercicios SET imagem_url = ? WHERE id = ?', [imagem_url ?? null, id]);
+}
+
 // Só exercícios cadastrados por você e que não estão em nenhuma ficha.
 export async function podeExcluirExercicio(id) {
   const ex = await getExercicio(id);

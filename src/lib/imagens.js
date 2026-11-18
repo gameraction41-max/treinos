@@ -82,6 +82,7 @@ export async function novaFoto(origem) {
 export async function srcDaImagem(caminho) {
   if (!caminho) return null;
   if (caminho.startsWith('data:') || caminho.startsWith('http')) return caminho;
+  if (caminho.startsWith('app:')) return `./${caminho.slice(4)}`; // foto que vem com o app
   if (cache.has(caminho)) return cache.get(caminho);
   const { Filesystem, Directory } = await import('@capacitor/filesystem');
   const { uri } = await Filesystem.getUri({ path: caminho, directory: Directory.Data });
@@ -91,7 +92,7 @@ export async function srcDaImagem(caminho) {
 }
 
 export async function apagarFoto(caminho) {
-  if (!caminho || caminho.startsWith('data:') || !Capacitor.isNativePlatform()) return;
+  if (!caminho || caminho.startsWith('data:') || caminho.startsWith('app:') || !Capacitor.isNativePlatform()) return;
   cache.delete(caminho);
   const { Filesystem, Directory } = await import('@capacitor/filesystem');
   await Filesystem.deleteFile({ path: caminho, directory: Directory.Data }).catch(() => {});

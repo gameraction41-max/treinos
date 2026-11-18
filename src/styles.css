@@ -1386,3 +1386,25 @@ input.time {
 .setting.fixa input {
   background: var(--surface);
 }
+
+.item-photo {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.photo-big {
+  width: 150px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 14px;
+  flex: none;
+  background: var(--surface-2);
+}
+
+.item-photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}

@@ -1,8 +1,8 @@
 // Tabelas do app (ver "Modelo de dados" no plano do MVP).
 // Para mudar o banco no futuro: aumente SCHEMA_VERSION e adicione um passo em migrate().
-import { seed } from './seed.js';
+import { seed, IMAGENS_PADRAO } from './seed.js';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS perfil (
@@ -91,6 +91,13 @@ CREATE INDEX IF NOT EXISTS idx_registros_peso_data ON registros_peso(data);
 export async function migrate(db, from) {
   if (from < 1) {
     await db.exec(V1);
-    await seed(db);
+    await seed(db); // já vem com as fotos
+    return;
+  }
+  if (from < 2) {
+    // v2: exercícios padrão ganham foto (só onde você ainda não pôs a sua).
+    for (const [nome, url] of Object.entries(IMAGENS_PADRAO)) {
+      await db.run('UPDATE exercicios SET imagem_url = ? WHERE padrao = 1 AND nome = ? AND imagem_url IS NULL', [url, nome]);
+    }
   }
 }
