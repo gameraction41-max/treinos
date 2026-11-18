@@ -1738,3 +1738,62 @@ input.time {
   align-items: flex-start;
   justify-content: space-between;
 }
+
+.start-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.start-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.start-card .row-sub {
+  color: var(--text);
+  opacity: 0.75;
+}
+
+.options.compact .option {
+  padding: 10px 12px;
+}
+
+.options.compact .option > span:last-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+}
+
+.date-input {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.note.mudanca-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dia-btn.leitura:disabled {
+  opacity: 1;
+}
+
+.dia-btn.leitura:not(.on):not(.fixo) {
+  color: var(--muted);
+}
+
+.note.mudanca-note > span {
+  flex: 1;
+}
+
+.note.mudanca-note > button {
+  flex: none;
+}

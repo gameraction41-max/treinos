@@ -7,15 +7,16 @@ async function carregar(inicio) {
   await repo.garantirSemana(inicio);
   // Num dia novo, um treino perdido empurra a fila para os próximos dias.
   await repo.redistribuirFila();
-  const [dias, perfil, fichas, fixos, proxima, livre] = await Promise.all([
+  const [dias, perfil, fichas, fixos, proxima, livre, meta] = await Promise.all([
     repo.getSemana(inicio),
     repo.getPerfil(),
     repo.listFichasAtivas(),
     repo.getDiasFixos(),
     repo.proximaFichaDaFila(),
     repo.proximoDiaLivre(inicio),
+    repo.metaDaSemana(inicio),
   ]);
-  return { dias, perfil, fichas, fixos, proxima, livre };
+  return { dias, perfil, fichas, fixos, proxima, livre, meta };
 }
 
 function nomeFixo(fixos, data) {
@@ -30,8 +31,9 @@ export default function Semana() {
   const [d] = useLoad(() => carregar(inicio), [inicio]);
   if (!d) return null;
 
-  const { dias, perfil, fichas, fixos, proxima, livre } = d;
-  const meta = Number(perfil.meta_semanal);
+  const { dias, perfil, fichas, fixos, proxima, livre, meta } = d;
+  const comeco = perfil.data_inicio && perfil.data_inicio > hoje ? perfil.data_inicio : null;
+  const antesDoInicio = comeco && comeco > addDays(inicio, 6);
   const feitos = dias.filter((x) => x.feito && x.tipo !== 'descanso').length;
   const planejadosRestantes = dias.filter((x) => !x.feito && x.tipo !== 'descanso' && x.data >= hoje).length;
   const perdidos = dias.filter((x) => !x.feito && x.tipo !== 'descanso' && x.data < hoje);
@@ -71,6 +73,17 @@ export default function Semana() {
         </button>
       </div>
 
+      {comeco && (
+        <section className="card start-card">
+          <Icon name="semana" />
+          <div>
+            <strong>Seus treinos começam {DIAS_LONGOS[parse(comeco).getDay()].toLowerCase()}, {fmtDiaMes(comeco)}</strong>
+            <span className="row-sub">Até lá, aproveite para conhecer suas fichas.</span>
+          </div>
+        </section>
+      )}
+
+      {!antesDoInicio && (
       <section className="card progress-card">
         <div className="progress-text">
           <span className="big">
@@ -87,6 +100,7 @@ export default function Semana() {
           ))}
         </div>
       </section>
+      )}
 
       {mostrarSugestao && (
         <section className="card suggest-card">

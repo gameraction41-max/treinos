@@ -104,11 +104,14 @@ export async function migrate(db, from) {
   if (from < 3) await v3(db);
 }
 
-// v3: dias da semana em que você vai à academia ('1,3,5'). Nulo = o app escolhe.
+// v3: dias da semana em que você vai à academia ('1,3,5'; nulo = o app escolhe),
+// data de início dos treinos e uma mudança de dias agendada (a partir de uma data).
 async function v3(db) {
-  try {
-    await db.exec('ALTER TABLE perfil ADD COLUMN dias_academia TEXT');
-  } catch (e) {
-    if (!/duplicate column/i.test(String(e?.message ?? e))) throw e;
+  for (const col of ['dias_academia', 'data_inicio', 'mudanca_em', 'mudanca_dias']) {
+    try {
+      await db.exec(`ALTER TABLE perfil ADD COLUMN ${col} TEXT`);
+    } catch (e) {
+      if (!/duplicate column/i.test(String(e?.message ?? e))) throw e;
+    }
   }
 }

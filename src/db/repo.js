@@ -4,7 +4,7 @@ import { seed } from './seed.js';
 
 // Montar e replanejar semanas nunca acontecem ao mesmo tempo.
 const travaSemana = criarTrava();
-import { today, weekDays, weekday, addDays } from '../lib/dates.js';
+import { today, weekDays, weekday, addDays, weekStart } from '../lib/dates.js';
 import { escolherDiasAcademia, distribuirFila, lerDias, ordenarDias, diasAcademiaPadrao } from '../lib/planner.js';
 
 // ---------- Perfil e configurações ----------
@@ -14,7 +14,7 @@ export async function getPerfil() {
 }
 
 export async function savePerfil(campos) {
-  const permitidos = ['altura_cm', 'nivel', 'meta_semanal', 'hora_lembrete', 'lembrete_peso_dias', 'configurado', 'dias_academia'];
+  const permitidos = ['altura_cm', 'nivel', 'meta_semanal', 'hora_lembrete', 'lembrete_peso_dias', 'configurado', 'dias_academia', 'data_inicio', 'mudanca_em', 'mudanca_dias'];
   const keys = Object.keys(campos).filter((k) => permitidos.includes(k));
   if (!keys.length) return;
   await run(
@@ -43,6 +43,80 @@ export async function salvarDiasAcademia(dias) {
 export async function ajustarDiasAcademia() {
   const { dias, escolhidos } = await getDiasAcademia();
   if (escolhidos) await salvarDiasAcademia(dias);
+  const p = await getPerfil();
+  if (p.mudanca_em) {
+    const fixos = new Set((await getDiasFixos()).map((f) => f.dia_semana));
+    const novos = ordenarDias((lerDias(p.mudanca_dias) || []).filter((d) => !fixos.has(d)));
+    await savePerfil({ mudanca_dias: novos.join(',') });
+  }
+}
+
+// Mudança de dias de academia que vale a partir de uma data. Os dias antes dela ficam como estão.
+export function mudarDiasAcademia(dias, aPartirDe) {
+  return travaSemana(async () => {
+    const hoje = today();
+    const data = aPartirDe > hoje ? aPartirDe : hoje;
+    // Fixa os dias atuais (se o app escolhia sozinho) para a semana até a mudança não mudar.
+    const atual = await getDiasAcademia();
+    if (!atual.escolhidos) await salvarDiasAcademia(atual.dias);
+    if (data === hoje) {
+      await salvarDiasAcademia(dias);
+      await savePerfil({ mudanca_em: null, mudanca_dias: null });
+    } else {
+      const fixos = new Set((await getDiasFixos()).map((f) => f.dia_semana));
+      await savePerfil({ mudanca_em: data, mudanca_dias: ordenarDias(dias.filter((d) => !fixos.has(d))).join(',') });
+    }
+    // Refaz, a partir da data, as semanas já montadas (esta e a próxima).
+    await run('DELETE FROM agenda WHERE data >= ? AND feito = 0', [data]);
+    for (const s of [weekStart(hoje), addDays(weekStart(hoje), 7)]) {
+      if (addDays(s, 6) >= data) await montarSemana(s);
+    }
+  });
+}
+
+export async function cancelarMudanca() {
+  const p = await getPerfil();
+  if (!p.mudanca_em) return;
+  await mudarDiasAcademia(lerDias(p.dias_academia) || [], p.mudanca_em);
+  await savePerfil({ mudanca_em: null, mudanca_dias: null });
+}
+
+// Quando a data chega, a mudança agendada vira a configuração atual.
+async function aplicarMudancaVencida() {
+  const p = await getPerfil();
+  if (p.mudanca_em && p.mudanca_em <= today()) {
+    await salvarDiasAcademia(lerDias(p.mudanca_dias) || []);
+    await savePerfil({ mudanca_em: null, mudanca_dias: null });
+  }
+}
+
+// Configuração que vale num dia: dias de academia e meta da semana dele.
+function configDoDia(perfil, fixosQtd, data) {
+  const fimSemana = addDays(weekStart(data), 6);
+  const usaNova = perfil.mudanca_em && perfil.mudanca_em <= fimSemana;
+  const atuais = lerDias(perfil.dias_academia);
+  const novos = lerDias(perfil.mudanca_dias) || [];
+  return {
+    dias: perfil.mudanca_em && data >= perfil.mudanca_em ? novos : atuais,
+    meta: usaNova ? Math.max(1, novos.length + fixosQtd) : Number(perfil.meta_semanal),
+  };
+}
+
+// Meta de uma semana: antes do início dos treinos não há meta; na semana do início,
+// só contam os dias a partir dele.
+export async function metaDaSemana(inicio) {
+  const perfil = await getPerfil();
+  const fixos = await getDiasFixos();
+  const fim = addDays(inicio, 6);
+  const { meta } = configDoDia(perfil, new Set(fixos.map((f) => f.dia_semana)).size, inicio);
+  const comeco = perfil.data_inicio;
+  if (!comeco || comeco <= inicio) return meta;
+  if (comeco > fim) return 0;
+  const r = await one(
+    "SELECT COUNT(*) AS n FROM agenda WHERE data BETWEEN ? AND ? AND tipo != 'descanso'",
+    [comeco, fim],
+  );
+  return Math.min(meta, Number(r.n));
 }
 
 export async function getDiasFixos() {
@@ -312,6 +386,7 @@ export function garantirSemana(inicio) {
 }
 
 async function garantirSemanaAgora(inicio) {
+  await aplicarMudancaVencida();
   const dias = weekDays(inicio);
   const hoje = today();
   if (dias[6] < hoje) return false;
@@ -335,27 +410,31 @@ async function replanejarAgora(inicio) {
 
 async function montarSemana(inicio) {
   const dias = weekDays(inicio);
-  const hoje = today();
   const perfil = await getPerfil();
+  // Nada é planejado antes de hoje nem antes da data de início dos treinos.
+  const hoje = perfil.data_inicio && perfil.data_inicio > today() ? perfil.data_inicio : today();
   const fixos = await getDiasFixos();
   const fixosPorDia = new Set(fixos.map((f) => f.dia_semana));
-  const existentes = new Set(
-    (await all('SELECT data FROM agenda WHERE data BETWEEN ? AND ?', [dias[0], dias[6]])).map((r) => r.data),
-  );
-  const feitosNaSemana = Number(
-    (
-      await one("SELECT COUNT(*) AS n FROM agenda WHERE data BETWEEN ? AND ? AND feito = 1 AND tipo != 'descanso'", [
-        dias[0],
-        dias[6],
-      ])
-    ).n,
-  );
+  const existentesRows = await all('SELECT data, tipo, feito FROM agenda WHERE data BETWEEN ? AND ?', [dias[0], dias[6]]);
+  const existentes = new Set(existentesRows.map((r) => r.data));
+  const feitosNaSemana = existentesRows.filter((r) => Number(r.feito) && r.tipo !== 'descanso').length;
+  // Dias já planejados e ainda por fazer (quando só parte da semana é refeita).
+  const jaPlanejados = existentesRows.filter((r) => !Number(r.feito) && r.tipo !== 'descanso' && r.data >= today()).length;
 
   const futuros = dias.filter((d) => d >= hoje && !existentes.has(d));
   const fixosFuturos = futuros.filter((d) => fixosPorDia.has(weekday(d)));
   const livres = futuros.filter((d) => !fixosPorDia.has(weekday(d)));
-  const n = Math.max(0, Number(perfil.meta_semanal) - fixosFuturos.length - feitosNaSemana);
-  const academia = new Set(escolherDiasAcademia(livres, n, weekday, lerDias(perfil.dias_academia)));
+  const { meta } = configDoDia(perfil, fixosPorDia.size, dias[6]);
+  const n = Math.max(0, meta - fixosFuturos.length - feitosNaSemana - jaPlanejados);
+  // Os dias escolhidos podem mudar no meio da semana (mudança agendada).
+  const preferidos = lerDias(perfil.dias_academia);
+  const temMudanca = perfil.mudanca_em && perfil.mudanca_em <= dias[6];
+  const candidatos = temMudanca
+    ? livres.filter((d) => (configDoDia(perfil, fixosPorDia.size, d).dias || []).includes(weekday(d)))
+    : livres;
+  const academia = new Set(
+    temMudanca ? candidatos.slice(0, n) : escolherDiasAcademia(candidatos, n, weekday, preferidos),
+  );
 
   await tx(async () => {
     for (const d of dias) {
@@ -424,11 +503,15 @@ export async function marcarFeito(data, feito) {
 }
 
 // Primeiro dia de descanso de hoje até o fim da semana.
+function comecoOuHoje(perfil) {
+  return perfil.data_inicio && perfil.data_inicio > today() ? perfil.data_inicio : today();
+}
+
 export async function proximoDiaLivre(inicio) {
   const fim = addDays(inicio, 6);
   const r = await one(
     "SELECT data FROM agenda WHERE tipo = 'descanso' AND data >= ? AND data <= ? ORDER BY data LIMIT 1",
-    [today(), fim],
+    [comecoOuHoje(await getPerfil()), fim],
   );
   return r?.data ?? null;
 }

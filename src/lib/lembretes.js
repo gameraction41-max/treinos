@@ -62,7 +62,7 @@ export async function montarLembretes(agora = new Date()) {
   for (const semana of [weekStart(today()), addDays(weekStart(today()), 7)]) {
     const dias = await repo.getSemana(semana);
     const feitos = dias.filter((d) => d.feito && d.tipo !== 'descanso').length;
-    const faltam = Number(perfil.meta_semanal) - feitos;
+    const faltam = (await repo.metaDaSemana(semana)) - feitos;
     const quinta = weekDays(semana)[3];
     const at = quando(quinta, hora);
     if (faltam > 1 && at > agora) {

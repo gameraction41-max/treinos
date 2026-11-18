@@ -4,6 +4,7 @@ import { DIAS_LONGOS, DIAS_CURTOS, today } from '../lib/dates.js';
 import * as repo from '../db/repo.js';
 import { divisaoSugerida, imc, classificarImc, ordenarDias, ORDEM_SEMANA } from '../lib/planner.js';
 import { pedirPermissao } from '../lib/lembretes.js';
+import { EscolhaData } from '../components/EscolhaData.jsx';
 
 const DESC_NIVEL = {
   iniciante: 'Treino há pouco tempo ou estou voltando agora.',
@@ -25,6 +26,7 @@ export default function Boasvindas({ onPronto }) {
   const [nomeFixa, setNomeFixa] = useState('');
   const [diasFixa, setDiasFixa] = useState([]);
   const [diasTreino, setDiasTreino] = useState([]);
+  const [comeco, setComeco] = useState(today());
   const [hora, setHora] = useState('07:00');
   const [pesoDias, setPesoDias] = useState(15);
   const [sugestao, setSugestao] = useState(true);
@@ -75,6 +77,7 @@ export default function Boasvindas({ onPronto }) {
         nivel,
         meta_semanal: meta,
         dias_academia: ordenarDias(diasTreino).join(','),
+        data_inicio: comeco,
         hora_lembrete: hora,
         lembrete_peso_dias: pesoDias,
         altura_cm: vAltura || null,
@@ -276,6 +279,15 @@ export default function Boasvindas({ onPronto }) {
                     );
                   })}
                 </div>
+              </div>
+            </section>
+            <section className="card settings">
+              <div className="setting column">
+                <div>
+                  <strong>Quando você começa?</strong>
+                  <span className="row-sub">Antes dessa data a semana fica livre, sem treinos nem lembretes.</span>
+                </div>
+                <EscolhaData valor={comeco} onChange={setComeco} />
               </div>
             </section>
             <div className="week-preview">
