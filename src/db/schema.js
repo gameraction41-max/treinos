@@ -2,7 +2,7 @@
 // Para mudar o banco no futuro: aumente SCHEMA_VERSION e adicione um passo em migrate().
 import { seed, IMAGENS_PADRAO } from './seed.js';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS perfil (
@@ -92,6 +92,7 @@ export async function migrate(db, from) {
   if (from < 1) {
     await db.exec(V1);
     await seed(db); // já vem com as fotos
+    await v3(db);
     return;
   }
   if (from < 2) {
@@ -99,5 +100,15 @@ export async function migrate(db, from) {
     for (const [nome, url] of Object.entries(IMAGENS_PADRAO)) {
       await db.run('UPDATE exercicios SET imagem_url = ? WHERE padrao = 1 AND nome = ? AND imagem_url IS NULL', [url, nome]);
     }
+  }
+  if (from < 3) await v3(db);
+}
+
+// v3: dias da semana em que você vai à academia ('1,3,5'). Nulo = o app escolhe.
+async function v3(db) {
+  try {
+    await db.exec('ALTER TABLE perfil ADD COLUMN dias_academia TEXT');
+  } catch (e) {
+    if (!/duplicate column/i.test(String(e?.message ?? e))) throw e;
   }
 }

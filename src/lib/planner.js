@@ -1,9 +1,15 @@
 // Regras puras de planejamento (sem banco), para poder testar.
 
-// Espalha n dias de academia entre os dias livres, preferindo segunda a sexta.
+// Dias de academia da semana.
 // livres: lista de datas 'AAAA-MM-DD' em ordem; weekdayOf: data -> 0..6 (0 = domingo).
-export function escolherDiasAcademia(livres, n, weekdayOf) {
+// preferidos: dias da semana que você escolheu (0..6). Sem escolha, o app espalha
+// os n dias entre os livres, preferindo segunda a sexta.
+export function escolherDiasAcademia(livres, n, weekdayOf, preferidos = null) {
   if (n <= 0) return [];
+  if (preferidos) {
+    const set = new Set(preferidos);
+    return livres.filter((d) => set.has(weekdayOf(d))).slice(0, n);
+  }
   const uteis = livres.filter((d) => {
     const w = weekdayOf(d);
     return w >= 1 && w <= 5;
@@ -16,6 +22,30 @@ export function escolherDiasAcademia(livres, n, weekdayOf) {
     out.push(pool[Math.min(idx, pool.length - 1)]);
   }
   return [...new Set(out)];
+}
+
+// '1,3,5' -> [1, 3, 5]; '' -> [] (só atividade fixa); nulo -> null (o app escolhe sozinho).
+export function lerDias(texto) {
+  if (texto == null) return null;
+  if (texto === '') return [];
+  return String(texto)
+    .split(',')
+    .map(Number)
+    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+}
+
+// Ordem de exibição: segunda a domingo.
+export const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+
+export function ordenarDias(dias) {
+  return [...new Set(dias)].sort((a, b) => ORDEM_SEMANA.indexOf(a) - ORDEM_SEMANA.indexOf(b));
+}
+
+// Os dias que o app usaria sozinho para uma meta, sem contar os dias fixos.
+export function diasAcademiaPadrao(meta, diasFixos) {
+  const fixos = new Set(diasFixos);
+  const livres = ORDEM_SEMANA.filter((d) => !fixos.has(d));
+  return ordenarDias(escolherDiasAcademia(livres, meta - fixos.size, (d) => d));
 }
 
 // Próxima ficha da fila depois da última feita. Fichas já em ordem_fila.

@@ -70,3 +70,21 @@ test('IMC', () => {
   assert.equal(classificarImc(27), 'Sobrepeso');
   assert.equal(imc(80, null), null);
 });
+
+test('dias escolhidos: só eles, na ordem, até a quantidade', async () => {
+  const { escolherDiasAcademia } = await import('../src/lib/planner.js');
+  const semana = ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20', '2026-11-21', '2026-11-22'];
+  const wd = (d) => new Date(d + 'T12:00:00').getDay();
+  assert.deepEqual(escolherDiasAcademia(semana, 3, wd, [2, 4, 6]), ['2026-11-17', '2026-11-19', '2026-11-21']);
+  assert.deepEqual(escolherDiasAcademia(semana.slice(3), 3, wd, [2, 4, 6]), ['2026-11-19', '2026-11-21']);
+  assert.deepEqual(escolherDiasAcademia(semana, 1, wd, [2, 4, 6]), ['2026-11-17']);
+});
+
+test('lerDias e dias padrão', async () => {
+  const { lerDias, diasAcademiaPadrao } = await import('../src/lib/planner.js');
+  assert.equal(lerDias(null), null);
+  assert.deepEqual(lerDias(''), []);
+  assert.deepEqual(lerDias('1,3,5'), [1, 3, 5]);
+  assert.deepEqual(diasAcademiaPadrao(4, [6]), [1, 3, 5]);
+  assert.deepEqual(diasAcademiaPadrao(2, [2, 4]), []);
+});

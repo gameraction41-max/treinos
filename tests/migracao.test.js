@@ -32,3 +32,12 @@ test('v1 -> v2 coloca foto só onde não havia foto sua', async () => {
   const r = db.raw.exec("SELECT imagem_url FROM exercicios WHERE nome IN ('Prancha', 'Stiff') ORDER BY nome")[0].values;
   assert.deepEqual(r, [['minha.jpg'], ['app:exercicios/stiff-legged-barbell-deadlift.jpg']]);
 });
+
+test('v2 -> v3 cria dias_academia vazio (o app continua escolhendo sozinho)', async () => {
+  const db = await banco();
+  await migrate(db, 0);
+  const cols = db.raw.exec('PRAGMA table_info(perfil)')[0].values.map((c) => c[1]);
+  assert.ok(cols.includes('dias_academia'));
+  const [[v]] = db.raw.exec('SELECT dias_academia FROM perfil')[0].values;
+  assert.equal(v, null);
+});

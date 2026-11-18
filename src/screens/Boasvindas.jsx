@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Icon, Stepper, Thumb, NIVEIS, useApp, parseNum, fmtNum } from '../components/ui.jsx';
-import { DIAS_LONGOS, today } from '../lib/dates.js';
+import { DIAS_LONGOS, DIAS_CURTOS, today } from '../lib/dates.js';
 import * as repo from '../db/repo.js';
-import { divisaoSugerida, imc, classificarImc } from '../lib/planner.js';
+import { divisaoSugerida, imc, classificarImc, ordenarDias, ORDEM_SEMANA } from '../lib/planner.js';
 import { pedirPermissao } from '../lib/lembretes.js';
 
 const DESC_NIVEL = {
@@ -24,6 +24,7 @@ export default function Boasvindas({ onPronto }) {
   const [temFixa, setTemFixa] = useState(false);
   const [nomeFixa, setNomeFixa] = useState('');
   const [diasFixa, setDiasFixa] = useState([]);
+  const [diasTreino, setDiasTreino] = useState([]);
   const [hora, setHora] = useState('07:00');
   const [pesoDias, setPesoDias] = useState(15);
   const [sugestao, setSugestao] = useState(true);
@@ -38,10 +39,26 @@ export default function Boasvindas({ onPronto }) {
     })().catch(console.error);
   }, []);
 
-  const qtdFixa = temFixa ? diasFixa.length : 0;
-  const diasAcademia = Math.max(1, meta - qtdFixa);
+  const fixosAtivos = temFixa ? diasFixa : [];
+  const qtdFixa = fixosAtivos.length;
+  const precisa = Math.max(0, meta - qtdFixa); // dias de academia a escolher
+  const diasAcademia = Math.max(1, precisa);
   const fixaIncompleta = temFixa && (!nomeFixa.trim() || !diasFixa.length);
   const alternarDia = (d) => setDiasFixa((v) => (v.includes(d) ? v.filter((x) => x !== d) : [...v, d]));
+  const alternarTreino = (d) =>
+    setDiasTreino((v) => (v.includes(d) ? v.filter((x) => x !== d) : v.length < precisa ? [...v, d] : v));
+  const faltam = precisa - diasTreino.length;
+
+  // A meta nunca fica abaixo dos dias fixos, e um dia não é academia e atividade fixa ao mesmo tempo.
+  useEffect(() => {
+    if (meta < qtdFixa) setMeta(Math.min(7, qtdFixa));
+  }, [meta, qtdFixa]);
+  useEffect(() => {
+    setDiasTreino((v) => {
+      const ok = v.filter((d) => !fixosAtivos.includes(d)).slice(0, precisa);
+      return ok.length === v.length ? v : ok;
+    });
+  }, [precisa, fixosAtivos.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   const dv = divisaoSugerida(divisoes, nivel, diasAcademia);
   const vAltura = parseNum(altura);
   const vPeso = parseNum(peso);
@@ -49,7 +66,7 @@ export default function Boasvindas({ onPronto }) {
   const pesoOk = !peso || (vPeso > 20 && vPeso < 400);
   const valorImc = alturaOk && pesoOk ? imc(vPeso, vAltura) : null;
 
-  const podeAvancar = [true, alturaOk && pesoOk, !fixaIncompleta, true, true][passo];
+  const podeAvancar = [true, alturaOk && pesoOk, !fixaIncompleta && faltam === 0, true, true][passo];
 
   async function concluir() {
     setSalvando(true);
@@ -57,6 +74,7 @@ export default function Boasvindas({ onPronto }) {
       await repo.savePerfil({
         nivel,
         meta_semanal: meta,
+        dias_academia: ordenarDias(diasTreino).join(','),
         hora_lembrete: hora,
         lembrete_peso_dias: pesoDias,
         altura_cm: vAltura || null,
@@ -191,7 +209,7 @@ export default function Boasvindas({ onPronto }) {
                   <strong>Treinos por semana</strong>
                   <span className="row-sub">{temFixa ? 'Contando a atividade fixa' : 'Academia e outras atividades'}</span>
                 </div>
-                <Stepper value={meta} min={1} max={7} onChange={setMeta} />
+                <Stepper value={meta} min={Math.max(1, qtdFixa)} max={7} onChange={setMeta} />
               </div>
               <label className="setting toggle">
                 <div>
@@ -219,11 +237,52 @@ export default function Boasvindas({ onPronto }) {
                 </div>
               )}
             </section>
+            <section className="card settings">
+              <div className="setting column">
+                <div className="dias-head">
+                  <div>
+                    <strong>Em quais dias você vai à academia?</strong>
+                    <span className="row-sub">
+                      {precisa === 0
+                        ? 'Sua meta já fecha com a atividade fixa.'
+                        : faltam > 0
+                          ? `Escolha mais ${faltam} dia${faltam > 1 ? 's' : ''}`
+                          : 'Pronto! Para trocar, desmarque um dia.'}
+                    </span>
+                  </div>
+                  {precisa > 0 && (
+                    <span className={`contador ${faltam === 0 ? 'ok' : ''}`}>
+                      {diasTreino.length}/{precisa}
+                    </span>
+                  )}
+                </div>
+                <div className="dias-grid" role="group" aria-label="Dias de academia">
+                  {ORDEM_SEMANA.map((d) => {
+                    const fixo = fixosAtivos.includes(d);
+                    const on = diasTreino.includes(d);
+                    const cheio = !on && diasTreino.length >= precisa;
+                    return (
+                      <button
+                        key={d}
+                        aria-pressed={on}
+                        aria-label={DIAS_LONGOS[d]}
+                        className={`dia-btn ${on ? 'on' : ''} ${fixo ? 'fixo' : ''}`}
+                        disabled={fixo || cheio}
+                        onClick={() => alternarTreino(d)}
+                      >
+                        <span>{DIAS_CURTOS[d]}</span>
+                        <small>{fixo ? (nomeFixa.trim() || 'Fixa').slice(0, 7) : on ? 'Treino' : ''}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
             <div className="week-preview">
-              <span className="big">{diasAcademia}</span>
+              <span className="big">{meta}</span>
               <span>
-                dia{diasAcademia > 1 ? 's' : ''} de academia
-                {temFixa && diasFixa.length > 0 && nomeFixa.trim() ? ` + ${nomeFixa.trim()} (${diasFixa.length}x)` : ''} por semana
+                treino{meta > 1 ? 's' : ''} por semana: {precisa} de academia
+                {qtdFixa > 0 && nomeFixa.trim() ? ` + ${nomeFixa.trim()} (${qtdFixa}x)` : ''}
               </span>
             </div>
           </>

@@ -1,14 +1,20 @@
 import { useState } from 'react';
-import { Icon, PageHeader, Segmented, Stepper, Sheet, useApp, useLoad, NIVEIS } from '../components/ui.jsx';
+import { Icon, PageHeader, Segmented, Sheet, useApp, useLoad, NIVEIS } from '../components/ui.jsx';
 import * as repo from '../db/repo.js';
-import { DIAS_LONGOS, weekStart, today, addDays } from '../lib/dates.js';
+import { DIAS_LONGOS, DIAS_CURTOS, weekStart, today, addDays } from '../lib/dates.js';
+import { ORDEM_SEMANA } from '../lib/planner.js';
 import { permissaoNotificacoes, pedirPermissao, testarNotificacao, cancelarTodos } from '../lib/lembretes.js';
 import { apagarFoto } from '../lib/imagens.js';
 import { Capacitor } from '@capacitor/core';
 
 async function carregar() {
-  const [perfil, fixos, permissao] = await Promise.all([repo.getPerfil(), repo.getDiasFixos(), permissaoNotificacoes()]);
-  return { perfil, fixos, permissao };
+  const [perfil, fixos, academia, permissao] = await Promise.all([
+    repo.getPerfil(),
+    repo.getDiasFixos(),
+    repo.getDiasAcademia(),
+    permissaoNotificacoes(),
+  ]);
+  return { perfil, fixos, academia: academia.dias, permissao };
 }
 
 // Mudanças na meta ou nos dias fixos replanejam esta semana e a próxima (de hoje em diante).
@@ -22,7 +28,25 @@ export default function Config() {
   const app = useApp();
   const [d] = useLoad(carregar, []);
   if (!d) return <PageHeader title="Configurações" />;
-  const { perfil, fixos, permissao } = d;
+  const { perfil, fixos, academia, permissao } = d;
+  const diasFixos = new Set(fixos.map((f) => f.dia_semana));
+  const nomeFixo = fixos[0]?.descricao || 'Fixa';
+
+  async function alternarAcademia(dia) {
+    const novos = academia.includes(dia) ? academia.filter((x) => x !== dia) : [...academia, dia];
+    if (!novos.length && !diasFixos.size) {
+      app.toast('Escolha pelo menos um dia');
+      return;
+    }
+    await repo.salvarDiasAcademia(novos);
+    await replanejar();
+    app.mudou();
+  }
+
+  async function fixosMudaram() {
+    await repo.ajustarDiasAcademia();
+    await replanejar();
+  }
 
   async function salvar(campos, replan = false) {
     await repo.savePerfil(campos);
@@ -36,12 +60,37 @@ export default function Config() {
       <div className="stack">
         <section className="card settings">
           <h3 className="card-title">Semana</h3>
-          <div className="setting">
+          <div className="setting column">
             <div>
-              <strong>Meta de treinos por semana</strong>
-              <span className="row-sub">Inclui a atividade fixa, se você tiver</span>
+              <strong>Dias de academia</strong>
+              <span className="row-sub">Toque para marcar ou desmarcar</span>
             </div>
-            <Stepper value={Number(perfil.meta_semanal)} min={1} max={7} onChange={(v) => salvar({ meta_semanal: v }, true)} />
+            <div className="dias-grid" role="group" aria-label="Dias de academia">
+              {ORDEM_SEMANA.map((dia) => {
+                const fixo = diasFixos.has(dia);
+                const on = academia.includes(dia);
+                return (
+                  <button
+                    key={dia}
+                    aria-pressed={on}
+                    aria-label={DIAS_LONGOS[dia]}
+                    className={`dia-btn ${on ? 'on' : ''} ${fixo ? 'fixo' : ''}`}
+                    disabled={fixo}
+                    onClick={() => alternarAcademia(dia)}
+                  >
+                    <span>{DIAS_CURTOS[dia]}</span>
+                    <small>{fixo ? nomeFixo.slice(0, 7) : on ? 'Treino' : ''}</small>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="week-preview small">
+              <span className="big">{perfil.meta_semanal}</span>
+              <span>
+                treino{perfil.meta_semanal > 1 ? 's' : ''} por semana: {academia.length} de academia
+                {fixos.length ? ` + ${nomeFixo} (${fixos.length}x)` : ''}
+              </span>
+            </div>
           </div>
           <div className="setting column">
             <div>
@@ -60,7 +109,7 @@ export default function Config() {
                     aria-label={`Remover ${f.descricao}`}
                     onClick={async () => {
                       await repo.removeDiaFixo(f.id);
-                      await replanejar();
+                      await fixosMudaram();
                       app.mudou();
                     }}
                   >
@@ -69,7 +118,7 @@ export default function Config() {
                 </li>
               ))}
             </ul>
-            <button className="btn ghost small" onClick={() => app.abrirSheet(<NovoFixo usados={fixos.map((f) => f.dia_semana)} nomeAtual={fixos[0]?.descricao} onSalvo={replanejar} />)}>
+            <button className="btn ghost small" onClick={() => app.abrirSheet(<NovoFixo usados={fixos.map((f) => f.dia_semana)} nomeAtual={fixos[0]?.descricao} onSalvo={fixosMudaram} />)}>
               <Icon name="mais" size={18} /> {fixos.length ? 'Adicionar outro dia' : 'Adicionar atividade fixa'}
             </button>
           </div>

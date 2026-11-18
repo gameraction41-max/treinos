@@ -1639,3 +1639,102 @@ input.time {
   color: var(--accent);
   flex: none;
 }
+
+/* ---------- Escolha dos dias de academia ---------- */
+.dias-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dias-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contador {
+  flex: none;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2, var(--line));
+  color: var(--muted);
+}
+
+.contador.ok {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dias-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.dia-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 58px;
+  padding: 6px 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.dia-btn small {
+  font-size: 10px;
+  font-weight: 600;
+  min-height: 12px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dia-btn.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.dia-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dia-btn.fixo {
+  opacity: 1;
+  border-style: dashed;
+  border-color: var(--pilates);
+  background: var(--pilates-soft);
+  color: var(--pilates);
+}
+
+.week-preview.small {
+  padding: 10px 14px;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.week-preview.small .big {
+  font-size: 22px;
+}
+
+.setting > .dias-head:first-child {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+}

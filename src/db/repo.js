@@ -5,7 +5,7 @@ import { seed } from './seed.js';
 // Montar e replanejar semanas nunca acontecem ao mesmo tempo.
 const travaSemana = criarTrava();
 import { today, weekDays, weekday, addDays } from '../lib/dates.js';
-import { escolherDiasAcademia, distribuirFila } from '../lib/planner.js';
+import { escolherDiasAcademia, distribuirFila, lerDias, ordenarDias, diasAcademiaPadrao } from '../lib/planner.js';
 
 // ---------- Perfil e configurações ----------
 
@@ -14,13 +14,35 @@ export async function getPerfil() {
 }
 
 export async function savePerfil(campos) {
-  const permitidos = ['altura_cm', 'nivel', 'meta_semanal', 'hora_lembrete', 'lembrete_peso_dias', 'configurado'];
+  const permitidos = ['altura_cm', 'nivel', 'meta_semanal', 'hora_lembrete', 'lembrete_peso_dias', 'configurado', 'dias_academia'];
   const keys = Object.keys(campos).filter((k) => permitidos.includes(k));
   if (!keys.length) return;
   await run(
     `UPDATE perfil SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = 1`,
     keys.map((k) => campos[k]),
   );
+}
+
+// Dias de academia escolhidos (0..6). Se você nunca escolheu, os que o app usaria.
+export async function getDiasAcademia() {
+  const [perfil, fixos] = await Promise.all([getPerfil(), getDiasFixos()]);
+  const escolhidos = lerDias(perfil.dias_academia);
+  const diasFixos = fixos.map((f) => f.dia_semana);
+  if (escolhidos) return { dias: escolhidos, escolhidos: true };
+  return { dias: diasAcademiaPadrao(Number(perfil.meta_semanal), diasFixos), escolhidos: false };
+}
+
+// Salva os dias de academia; a meta passa a ser academia + dias da atividade fixa.
+export async function salvarDiasAcademia(dias) {
+  const fixos = new Set((await getDiasFixos()).map((f) => f.dia_semana));
+  const limpos = ordenarDias(dias.filter((d) => !fixos.has(d)));
+  await savePerfil({ dias_academia: limpos.join(','), meta_semanal: Math.max(1, limpos.length + fixos.size) });
+}
+
+// Depois de mudar a atividade fixa: tira dos dias de academia o que virou fixo e refaz a meta.
+export async function ajustarDiasAcademia() {
+  const { dias, escolhidos } = await getDiasAcademia();
+  if (escolhidos) await salvarDiasAcademia(dias);
 }
 
 export async function getDiasFixos() {
@@ -333,7 +355,7 @@ async function montarSemana(inicio) {
   const fixosFuturos = futuros.filter((d) => fixosPorDia.has(weekday(d)));
   const livres = futuros.filter((d) => !fixosPorDia.has(weekday(d)));
   const n = Math.max(0, Number(perfil.meta_semanal) - fixosFuturos.length - feitosNaSemana);
-  const academia = new Set(escolherDiasAcademia(livres, n, weekday));
+  const academia = new Set(escolherDiasAcademia(livres, n, weekday, lerDias(perfil.dias_academia)));
 
   await tx(async () => {
     for (const d of dias) {
