@@ -53,7 +53,7 @@ export default function Config() {
           <div className="setting column">
             <div>
               <strong>Dias de academia</strong>
-              <span className="row-sub">Valem a partir de hoje</span>
+              <span className="row-sub">Os dias de agora</span>
             </div>
             <GradeDias dias={academia} fixos={diasFixos} nomeFixo={nomeFixo} />
             <div className="week-preview small">
