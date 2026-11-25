@@ -12,6 +12,14 @@ export const GRUPOS = [
   'Glúteos',
   'Panturrilha',
   'Abdômen',
+  'Cardio',
+];
+
+// Cardio: entra no fim das fichas quando o objetivo é emagrecer.
+export const EXERCICIOS_CARDIO = [
+  ['Esteira', 'Cardio'],
+  ['Bicicleta ergométrica', 'Cardio'],
+  ['Elíptico', 'Cardio'],
 ];
 
 export const EXERCICIOS_PADRAO = [
@@ -60,6 +68,7 @@ export const EXERCICIOS_PADRAO = [
   ['Prancha lateral', 'Abdômen'],
   ['Abdominal crunch', 'Abdômen'],
   ['Elevação de pernas', 'Abdômen'],
+  ...EXERCICIOS_CARDIO,
 ];
 
 // Fotos dos exercícios padrão: Free Exercise DB (domínio público, Unlicense),
@@ -110,6 +119,9 @@ export const IMAGENS_PADRAO = {
   "Prancha lateral": 'app:exercicios/side-bridge.jpg',
   "Abdominal crunch": 'app:exercicios/crunches.jpg',
   "Elevação de pernas": 'app:exercicios/flat-bench-lying-leg-raise.jpg',
+  "Esteira": 'app:exercicios/esteira.jpg',
+  "Bicicleta ergométrica": 'app:exercicios/bicicleta-ergometrica.jpg',
+  "Elíptico": 'app:exercicios/eliptico.jpg',
 };
 
 // Cada divisão gera várias fichas (A, B, C…). Itens: [exercício, séries, repetições].

@@ -41,3 +41,15 @@ test('v2 -> v3 cria dias_academia vazio (o app continua escolhendo sozinho)', as
   const [[v]] = db.raw.exec('SELECT dias_academia FROM perfil')[0].values;
   assert.equal(v, null);
 });
+
+test('v3 -> v4 cria objetivo e adiciona o cardio uma vez só', async () => {
+  const db = await banco();
+  await migrate(db, 0);
+  const n0 = db.raw.exec("SELECT COUNT(*) FROM exercicios WHERE grupo_muscular = 'Cardio'")[0].values[0][0];
+  assert.equal(n0, 3);
+  await migrate(db, 3);
+  const n1 = db.raw.exec("SELECT COUNT(*) FROM exercicios WHERE grupo_muscular = 'Cardio'")[0].values[0][0];
+  assert.equal(n1, 3);
+  const cols = db.raw.exec('PRAGMA table_info(perfil)')[0].values.map((c) => c[1]);
+  assert.ok(cols.includes('objetivo'));
+});

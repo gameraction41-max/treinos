@@ -82,10 +82,15 @@ function faixa(dias) {
   return [a, b ?? a];
 }
 
-// Escolhe a divisão sugerida para o nível e os dias de academia.
+// Escolhe a divisão sugerida para o nível, os dias de academia e o objetivo.
 // divisoes: [{divisao, nivel, dias_semana}] (uma por divisão).
-export function divisaoSugerida(divisoes, nivel, diasAcademia) {
+// Para emagrecer ou saúde, com até 3 dias, corpo inteiro rende mais que dividir por grupo.
+export function divisaoSugerida(divisoes, nivel, diasAcademia, objetivo = null) {
   if (!divisoes.length) return null;
+  if ((objetivo === 'emagrecer' || objetivo === 'saude') && diasAcademia <= 3) {
+    const fb = divisoes.find((d) => /full body|corpo inteiro/i.test(d.divisao));
+    if (fb) return fb;
+  }
   const doNivel = divisoes.filter((d) => d.nivel === nivel);
   const candidatas = doNivel.length ? doNivel : divisoes;
   const dist = (d) => {

@@ -60,6 +60,7 @@ export const CORES_GRUPO = {
   Glúteos: '#D8708E',
   Panturrilha: '#7E9A3A',
   Abdômen: '#8A7B6B',
+  Cardio: '#D9534F',
 };
 
 const SIGLA = {
@@ -73,6 +74,7 @@ const SIGLA = {
   Glúteos: 'GL',
   Panturrilha: 'PA',
   Abdômen: 'AB',
+  Cardio: 'CA',
 };
 
 export function GrupoIcon({ grupo, size = 48, radius }) {

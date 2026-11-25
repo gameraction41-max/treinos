@@ -1,8 +1,8 @@
 // Tabelas do app (ver "Modelo de dados" no plano do MVP).
 // Para mudar o banco no futuro: aumente SCHEMA_VERSION e adicione um passo em migrate().
-import { seed, IMAGENS_PADRAO } from './seed.js';
+import { seed, IMAGENS_PADRAO, EXERCICIOS_CARDIO } from './seed.js';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const V1 = `
 CREATE TABLE IF NOT EXISTS perfil (
@@ -93,6 +93,7 @@ export async function migrate(db, from) {
     await db.exec(V1);
     await seed(db); // já vem com as fotos
     await v3(db);
+    await v4(db, false);
     return;
   }
   if (from < 2) {
@@ -102,6 +103,24 @@ export async function migrate(db, from) {
     }
   }
   if (from < 3) await v3(db);
+  if (from < 4) await v4(db, true);
+}
+
+// v4: objetivo (emagrecer, hipertrofia, forca, saude) e exercícios de cardio.
+async function v4(db, inserirCardio) {
+  try {
+    await db.exec('ALTER TABLE perfil ADD COLUMN objetivo TEXT');
+  } catch (e) {
+    if (!/duplicate column/i.test(String(e?.message ?? e))) throw e;
+  }
+  if (!inserirCardio) return; // banco novo: o seed já trouxe
+  for (const [nome, grupo] of EXERCICIOS_CARDIO) {
+    await db.run(
+      `INSERT INTO exercicios (nome, grupo_muscular, imagem_url, padrao)
+       SELECT ?, ?, ?, 1 WHERE NOT EXISTS (SELECT 1 FROM exercicios WHERE nome = ?)`,
+      [nome, grupo, IMAGENS_PADRAO[nome] ?? null, nome],
+    );
+  }
 }
 
 // v3: dias da semana em que você vai à academia ('1,3,5'; nulo = o app escolhe),

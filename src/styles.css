@@ -1797,3 +1797,32 @@ input.time {
 .note.mudanca-note > button {
   flex: none;
 }
+
+/* ---------- Objetivo ---------- */
+.ajuste-objetivo {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 2px 0 4px;
+  line-height: 1.4;
+}
+
+.ajuste-objetivo .chip {
+  margin-right: 4px;
+}
+
+button.setting.link-row {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  align-items: center;
+}
+
+button.setting.link-row svg {
+  color: var(--muted);
+  flex: none;
+}

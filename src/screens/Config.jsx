@@ -4,6 +4,7 @@ import * as repo from '../db/repo.js';
 import { DIAS_LONGOS, DIAS_CURTOS, weekStart, today, addDays, fmtDiaMes, parse } from '../lib/dates.js';
 import { ORDEM_SEMANA, lerDias } from '../lib/planner.js';
 import { EscolhaData } from '../components/EscolhaData.jsx';
+import { OBJETIVOS, nomeObjetivo } from '../lib/objetivos.js';
 import { permissaoNotificacoes, pedirPermissao, testarNotificacao, cancelarTodos } from '../lib/lembretes.js';
 import { apagarFoto } from '../lib/imagens.js';
 import { Capacitor } from '@capacitor/core';
@@ -127,6 +128,13 @@ export default function Config() {
               <Icon name="mais" size={18} /> {fixos.length ? 'Adicionar outro dia' : 'Adicionar atividade fixa'}
             </button>
           </div>
+          <button className="setting link-row" onClick={() => app.abrirSheet(<ObjetivoSheet atual={perfil.objetivo} />)}>
+            <div>
+              <strong>Objetivo</strong>
+              <span className="row-sub">{nomeObjetivo(perfil.objetivo) || 'Não definido'}</span>
+            </div>
+            <Icon name="dir" size={20} />
+          </button>
           <div className="setting column">
             <strong>Nível</strong>
             <Segmented options={NIVEIS} value={perfil.nivel} onChange={(v) => salvar({ nivel: v })} />
@@ -268,6 +276,46 @@ function MudarDias({ atuais, fixos, nomeFixo, dataInicial }) {
             : `Até ${DIAS_LONGOS[parse(addDays(data, -1)).getDay()].toLowerCase()}, ${fmtDiaMes(addDays(data, -1))}, fica tudo como está.`}
         </span>
       </div>
+    </Sheet>
+  );
+}
+
+function ObjetivoSheet({ atual }) {
+  const app = useApp();
+  const [objetivo, setObjetivo] = useState(atual);
+  return (
+    <Sheet
+      title="Objetivo"
+      onClose={app.fecharSheet}
+      footer={
+        <button
+          className="btn full"
+          disabled={!objetivo}
+          onClick={async () => {
+            await repo.savePerfil({ objetivo });
+            app.fecharSheet();
+            app.mudou();
+            app.toast('Objetivo salvo');
+          }}
+        >
+          Salvar
+        </button>
+      }
+    >
+      <div className="level-cards objetivos" role="radiogroup">
+        {OBJETIVOS.map((o) => (
+          <button key={o.value} role="radio" aria-checked={objetivo === o.value} className={`level-card ${objetivo === o.value ? 'on' : ''}`} onClick={() => setObjetivo(o.value)}>
+            <span className="radio" />
+            <span>
+              <strong>{o.label}</strong>
+              <span>{o.desc}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="hint small">
+        Vale para as próximas sugestões e para "Restaurar sugestão original". Suas fichas atuais não mudam.
+      </p>
     </Sheet>
   );
 }

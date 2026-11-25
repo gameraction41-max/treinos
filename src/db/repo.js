@@ -5,6 +5,7 @@ import { seed } from './seed.js';
 // Montar e replanejar semanas nunca acontecem ao mesmo tempo.
 const travaSemana = criarTrava();
 import { today, weekDays, weekday, addDays, weekStart } from '../lib/dates.js';
+import { ajustarItens } from '../lib/objetivos.js';
 import { escolherDiasAcademia, distribuirFila, lerDias, ordenarDias, diasAcademiaPadrao } from '../lib/planner.js';
 
 // ---------- Perfil e configurações ----------
@@ -14,7 +15,7 @@ export async function getPerfil() {
 }
 
 export async function savePerfil(campos) {
-  const permitidos = ['altura_cm', 'nivel', 'meta_semanal', 'hora_lembrete', 'lembrete_peso_dias', 'configurado', 'dias_academia', 'data_inicio', 'mudanca_em', 'mudanca_dias'];
+  const permitidos = ['altura_cm', 'nivel', 'meta_semanal', 'hora_lembrete', 'lembrete_peso_dias', 'configurado', 'dias_academia', 'data_inicio', 'mudanca_em', 'mudanca_dias', 'objetivo'];
   const keys = Object.keys(campos).filter((k) => permitidos.includes(k));
   if (!keys.length) return;
   await run(
@@ -254,18 +255,26 @@ export async function criarFicha(nome) {
   return lastId;
 }
 
-async function copiarItensDoModelo(fichaId, modeloId) {
-  const itens = await all('SELECT * FROM modelo_itens WHERE modelo_id = ? ORDER BY ordem', [modeloId]);
+// Exercício de cardio usado quando o objetivo é emagrecer.
+export async function getCardio() {
+  return one("SELECT * FROM exercicios WHERE grupo_muscular = 'Cardio' ORDER BY padrao DESC, (nome = 'Esteira') DESC, id LIMIT 1");
+}
+
+async function copiarItensDoModelo(fichaId, modeloId, objetivo) {
+  const base = await getModeloItens(modeloId);
+  const itens = ajustarItens(base, objetivo, objetivo === 'emagrecer' ? await getCardio() : null);
+  let ordem = 0;
   for (const it of itens) {
     await run(
       'INSERT INTO ficha_itens (ficha_id, exercicio_id, ordem, series, repeticoes) VALUES (?, ?, ?, ?, ?)',
-      [fichaId, it.exercicio_id, it.ordem, it.series, it.repeticoes],
+      [fichaId, it.exercicio_id, ordem++, it.series, it.repeticoes],
     );
   }
 }
 
 // Copia todas as fichas de uma divisão sugerida para as suas fichas.
-export async function usarSugestao(divisao) {
+export async function usarSugestao(divisao, objetivo) {
+  if (objetivo === undefined) objetivo = (await getPerfil())?.objetivo ?? null;
   const modelos = await all('SELECT * FROM modelos_treino WHERE divisao = ? ORDER BY ordem', [divisao]);
   const ids = await tx(async () => {
     let ordem = await proximaOrdemFila();
@@ -275,7 +284,7 @@ export async function usarSugestao(divisao) {
         'INSERT INTO fichas (nome, modelo_origem_id, ordem_fila, ativa) VALUES (?, ?, ?, 1)',
         [m.nome, m.id, ordem++],
       );
-      await copiarItensDoModelo(lastId, m.id);
+      await copiarItensDoModelo(lastId, m.id, objetivo);
       out.push(lastId);
     }
     return out;
@@ -289,9 +298,10 @@ export async function restaurarSugestao(fichaId) {
   const f = await one('SELECT * FROM fichas WHERE id = ?', [fichaId]);
   if (!f?.modelo_origem_id) return;
   const m = await one('SELECT * FROM modelos_treino WHERE id = ?', [f.modelo_origem_id]);
+  const objetivo = (await getPerfil())?.objetivo ?? null;
   await tx(async () => {
     await run('DELETE FROM ficha_itens WHERE ficha_id = ?', [fichaId]);
-    await copiarItensDoModelo(fichaId, f.modelo_origem_id);
+    await copiarItensDoModelo(fichaId, f.modelo_origem_id, objetivo);
     if (m) await run('UPDATE fichas SET nome = ? WHERE id = ?', [m.nome, fichaId]);
   });
 }

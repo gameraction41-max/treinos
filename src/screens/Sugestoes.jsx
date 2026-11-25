@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { PageHeader, Thumb, useApp, useLoad, nomeNivel } from '../components/ui.jsx';
 import * as repo from '../db/repo.js';
 import { divisaoSugerida } from '../lib/planner.js';
+import { ajustarItens, nomeObjetivo } from '../lib/objetivos.js';
 
 async function carregar() {
   const [divisoes, perfil, fixos] = await Promise.all([repo.listDivisoes(), repo.getPerfil(), repo.getDiasFixos()]);
   const diasAcademia = Math.max(1, Number(perfil.meta_semanal) - fixos.length);
-  const recomendada = divisaoSugerida(divisoes, perfil.nivel, diasAcademia);
+  const recomendada = divisaoSugerida(divisoes, perfil.nivel, diasAcademia, perfil.objetivo);
+  const cardio = perfil.objetivo === 'emagrecer' ? await repo.getCardio() : null;
   for (const dv of divisoes) {
-    for (const f of dv.fichas) f.itens = await repo.getModeloItens(f.id);
+    for (const f of dv.fichas) f.itens = ajustarItens(await repo.getModeloItens(f.id), perfil.objetivo, cardio);
   }
   return { divisoes, perfil, diasAcademia, recomendada, temFixa: fixos.length > 0 };
 }
@@ -36,7 +38,13 @@ export default function Sugestoes() {
       <PageHeader title="Usar sugestão" />
       <div className="stack">
         <p className="hint">
-          Para <b>{nomeNivel(d.perfil.nivel).toLowerCase()}</b> com <b>{d.diasAcademia}</b> dia{d.diasAcademia > 1 ? 's' : ''} de academia por
+          Para <b>{nomeNivel(d.perfil.nivel).toLowerCase()}</b>
+          {d.perfil.objetivo ? (
+            <>
+              {' '}com objetivo <b>{nomeObjetivo(d.perfil.objetivo).toLowerCase()}</b>,
+            </>
+          ) : null}{' '}
+          com <b>{d.diasAcademia}</b> dia{d.diasAcademia > 1 ? 's' : ''} de academia por
           semana{d.temFixa ? ' (a atividade fixa conta na meta, mas não ocupa dia de academia)' : ''}.
         </p>
         {d.recomendada && <Divisao dv={d.recomendada} destaque onUsar={usar} />}
@@ -74,8 +82,8 @@ function Divisao({ dv, destaque, fechada, onAbrir, onUsar }) {
             <div key={f.id} className="model-ficha">
               <strong>{f.nome}</strong>
               <ul>
-                {f.itens.map((it) => (
-                  <li key={it.id}>
+                {f.itens.map((it, i) => (
+                  <li key={i}>
                     <Thumb imagem={it.imagem_url} grupo={it.grupo_muscular} size={28} />
                     <span>{it.nome}</span>
                     <span className="muted-text">

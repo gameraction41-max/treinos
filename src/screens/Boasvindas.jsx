@@ -5,6 +5,7 @@ import * as repo from '../db/repo.js';
 import { divisaoSugerida, imc, classificarImc, ordenarDias, ORDEM_SEMANA } from '../lib/planner.js';
 import { pedirPermissao } from '../lib/lembretes.js';
 import { EscolhaData } from '../components/EscolhaData.jsx';
+import { OBJETIVOS, ajustarItens } from '../lib/objetivos.js';
 
 const DESC_NIVEL = {
   iniciante: 'Treino há pouco tempo ou estou voltando agora.',
@@ -12,12 +13,14 @@ const DESC_NIVEL = {
   avancado: 'Treino há anos, com bastante volume e divisão por grupo muscular.',
 };
 
-const PASSOS = ['Início', 'Você', 'Semana', 'Fichas', 'Lembretes'];
+const PASSOS = ['Início', 'Objetivo', 'Você', 'Semana', 'Fichas', 'Lembretes'];
 
 // Primeira abertura: um passo a passo curto para montar a primeira semana.
 export default function Boasvindas({ onPronto }) {
   const app = useApp();
   const [passo, setPasso] = useState(0);
+  const [objetivo, setObjetivo] = useState(null);
+  const [cardio, setCardio] = useState(null);
   const [nivel, setNivel] = useState('iniciante');
   const [altura, setAltura] = useState('');
   const [peso, setPeso] = useState('');
@@ -38,6 +41,7 @@ export default function Boasvindas({ onPronto }) {
       const dvs = await repo.listDivisoes();
       for (const dv of dvs) for (const f of dv.fichas) f.itens = await repo.getModeloItens(f.id);
       setDivisoes(dvs);
+      setCardio(await repo.getCardio());
     })().catch(console.error);
   }, []);
 
@@ -61,20 +65,22 @@ export default function Boasvindas({ onPronto }) {
       return ok.length === v.length ? v : ok;
     });
   }, [precisa, fixosAtivos.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
-  const dv = divisaoSugerida(divisoes, nivel, diasAcademia);
+  const dv = divisaoSugerida(divisoes, nivel, diasAcademia, objetivo);
+  const obj = OBJETIVOS.find((o) => o.value === objetivo);
   const vAltura = parseNum(altura);
   const vPeso = parseNum(peso);
   const alturaOk = !altura || (vAltura > 80 && vAltura < 250);
   const pesoOk = !peso || (vPeso > 20 && vPeso < 400);
   const valorImc = alturaOk && pesoOk ? imc(vPeso, vAltura) : null;
 
-  const podeAvancar = [true, alturaOk && pesoOk, !fixaIncompleta && faltam === 0, true, true][passo];
+  const podeAvancar = [true, !!objetivo, alturaOk && pesoOk, !fixaIncompleta && faltam === 0, true, true][passo];
 
   async function concluir() {
     setSalvando(true);
     try {
       await repo.savePerfil({
         nivel,
+        objetivo,
         meta_semanal: meta,
         dias_academia: ordenarDias(diasTreino).join(','),
         data_inicio: comeco,
@@ -85,7 +91,7 @@ export default function Boasvindas({ onPronto }) {
       if (vPeso) await repo.addPeso(today(), vPeso);
       for (const f of await repo.getDiasFixos()) await repo.removeDiaFixo(f.id);
       if (temFixa) for (const d of diasFixa) await repo.addDiaFixo(d, nomeFixa.trim());
-      if (sugestao && dv) await repo.usarSugestao(dv.divisao);
+      if (sugestao && dv) await repo.usarSugestao(dv.divisao, objetivo);
       await repo.savePerfil({ configurado: 1 });
       // A permissão nunca pode segurar a entrada no app.
       await Promise.race([pedirPermissao().catch(() => {}), new Promise((r) => setTimeout(r, 20000))]);
@@ -171,6 +177,24 @@ export default function Boasvindas({ onPronto }) {
 
         {passo === 1 && (
           <>
+            <Titulo t="Qual é o seu objetivo?" s="Usamos isso para montar as fichas sugeridas." />
+            <div className="level-cards objetivos" role="radiogroup">
+              {OBJETIVOS.map((o) => (
+                <button key={o.value} role="radio" aria-checked={objetivo === o.value} className={`level-card ${objetivo === o.value ? 'on' : ''}`} onClick={() => setObjetivo(o.value)}>
+                  <span className="radio" />
+                  <span>
+                    <strong>{o.label}</strong>
+                    <span>{o.desc}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="hint small">Dá para mudar depois nas Configurações.</p>
+          </>
+        )}
+
+        {passo === 2 && (
+          <>
             <Titulo t="Sobre você" s="Usamos o nível para sugerir as fichas certas." />
             <div className="level-cards" role="radiogroup">
               {NIVEIS.map((n) => (
@@ -203,7 +227,7 @@ export default function Boasvindas({ onPronto }) {
           </>
         )}
 
-        {passo === 2 && (
+        {passo === 3 && (
           <>
             <Titulo t="Sua semana" s="Quantos treinos você quer fazer por semana?" />
             <section className="card settings">
@@ -300,9 +324,9 @@ export default function Boasvindas({ onPronto }) {
           </>
         )}
 
-        {passo === 3 && (
+        {passo === 4 && (
           <>
-            <Titulo t="Suas fichas" s="Uma sugestão pronta para começar. Depois você edita como quiser." />
+            <Titulo t="Suas fichas" s="Uma sugestão pronta para o seu objetivo. Depois você edita como quiser." />
             {dv && (
               <section className={`card model ${sugestao ? 'highlight' : ''}`}>
                 <div className="model-head">
@@ -312,17 +336,25 @@ export default function Boasvindas({ onPronto }) {
                     {dv.fichas.length} fichas que se revezam em {diasAcademia} dia{diasAcademia > 1 ? 's' : ''} de academia
                   </span>
                 </div>
-                {dv.fichas.map((f) => (
-                  <div key={f.id} className="model-ficha">
-                    <strong>{f.nome}</strong>
-                    <div className="thumb-row">
-                      {(f.itens || []).slice(0, 6).map((it) => (
-                        <Thumb key={it.id} imagem={it.imagem_url} grupo={it.grupo_muscular} size={40} />
-                      ))}
-                      {(f.itens || []).length > 6 && <span className="more">+{f.itens.length - 6}</span>}
-                    </div>
+                {obj && (
+                  <div className="ajuste-objetivo">
+                    <span className="chip">{obj.label}</span> {obj.ajuste}
                   </div>
-                ))}
+                )}
+                {dv.fichas.map((f) => {
+                  const itens = ajustarItens(f.itens || [], objetivo, cardio);
+                  return (
+                    <div key={f.id} className="model-ficha">
+                      <strong>{f.nome}</strong>
+                      <div className="thumb-row">
+                        {itens.slice(0, 7).map((it, i) => (
+                          <Thumb key={i} imagem={it.imagem_url} grupo={it.grupo_muscular} size={40} />
+                        ))}
+                        {itens.length > 7 && <span className="more">+{itens.length - 7}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </section>
             )}
             <div className="options">
@@ -345,7 +377,7 @@ export default function Boasvindas({ onPronto }) {
           </>
         )}
 
-        {passo === 4 && (
+        {passo === 5 && (
           <>
             <Titulo t="Lembretes" s="Avisos no próprio celular, sem internet." />
             <section className="card settings">
